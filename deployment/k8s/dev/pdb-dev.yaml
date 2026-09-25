@@ -1,0 +1,29 @@
+# PodDisruptionBudget — VeriForge Ops Dev (mirrors deployment/k8s/pdb.yaml)
+#
+# Dev runs 1 replica per deployment, so minAvailable: 0 is used here (unlike
+# prod's minAvailable: 1) — a minAvailable of 1 against a single-replica
+# deployment would block all voluntary disruptions (node drains, upgrades).
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: veriforgeops-dev
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app: backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: veriforgeops-dev
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app: frontend

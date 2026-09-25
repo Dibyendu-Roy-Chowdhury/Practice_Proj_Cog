@@ -1,0 +1,36 @@
+[Unit]
+Description=VeriForge Ops — Express API Backend
+Documentation=https://github.com/your-org/veriforgeops
+After=network.target mongod.service
+Requires=mongod.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/veriforge-ops/server
+
+# Load secrets from a file that is not world-readable (chmod 600)
+EnvironmentFile=/opt/veriforge-ops/server/.env
+
+# Start the Node.js server
+ExecStart=/usr/bin/node server.js
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Give the process time to start before marking it as failed
+TimeoutStartSec=30
+
+# Logging goes to journald — view with: journalctl -u veriforge-api -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=veriforge-api
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

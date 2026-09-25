@@ -1,0 +1,111 @@
+const Runbook = require('../models/Runbook');
+
+module.exports = async function seedRunbooks() {
+  await Runbook.deleteMany({});
+  await Runbook.insertMany([
+    {
+      runbook_id: 'agent-restart', title: 'Agent Restart Procedure', severity: 'P2',
+      personas: ['L1', 'L2'],
+      triggers: ['Agent returns 503 for >2 consecutive health checks', 'Agent process exits with non-zero code', 'Memory usage exceeds 90% for >5 minutes', 'HITL queue unresponsive for >10 minutes'],
+      steps: [
+        { title: 'Verify the failure', desc: 'Confirm the agent is unresponsive by checking the health endpoint.', command: 'curl -X GET http://agent-host:8000/health', verify: 'Response should be 200 OK. If timeout, proceed to step 2.' },
+        { title: 'Checkpoint agent state', desc: 'Before restarting, preserve in-flight execution state.', command: 'POST /api/agents/{agent_id}/checkpoint\n{"preserve_context": true, "save_memory": true}', verify: 'Response includes checkpoint_id. Note it for step 5.' },
+        { title: 'Graceful shutdown', desc: 'Send SIGTERM to allow the agent to complete any pending memory writes.', command: 'kubectl rollout restart deployment/{agent_id} -n agents', verify: 'kubectl get pods -n agents — pod should enter Terminating state.' },
+        { title: 'Confirm new pod healthy', desc: 'Wait for the replacement pod to pass liveness probes.', command: 'kubectl wait --for=condition=ready pod -l app={agent_id} --timeout=120s', verify: 'Pod status: Running. Liveness: Passing.' },
+        { title: 'Resume from checkpoint', desc: 'Restore the preserved state from step 2.', command: 'POST /api/agents/{agent_id}/resume\n{"checkpoint_id": "<from step 2>"}', verify: 'Agent resumes processing. Check Audit page for trace continuity.' },
+      ],
+      escalation: [{ from: 'L1', to: 'L2', threshold: '15 min' }, { from: 'L2', to: 'L3', threshold: '30 min' }, { from: 'L3', to: 'Platform Eng', threshold: '60 min' }],
+      relatedIncidents: ['INC-001', 'INC-007', 'INC-019'],
+    },
+    {
+      runbook_id: 'cost-overrun', title: 'Cost Overrun Response', severity: 'P1',
+      personas: ['L1', 'L2', 'L3'],
+      triggers: ['Daily spend exceeds configured budget threshold', 'Single episode cost > $0.50', 'Circuit breaker triggered on cost dimension', 'Anomaly Score > 80 on Token Spike category'],
+      steps: [
+        { title: 'Identify the offending agent', desc: 'Open Cost Governance page → Episode Cost Attribution table. Filter by Status = Auto-Killed or sort Total Cost descending.', verify: 'Note the Episode ID and Agent name.' },
+        { title: 'Suspend the agent', desc: 'Immediately suspend the agent to halt further spend accumulation.', command: 'POST /api/agents/{agent_id}/status\n{"status": "Inactive"}', verify: 'Agent status shows Inactive in Registry.' },
+        { title: 'Analyse the episode trace', desc: 'Navigate to Agent Traces → find the Episode ID. Expand timeline to identify which tool calls drove cost.', verify: 'Identify the root tool or loop causing excess tokens.' },
+        { title: 'Tighten circuit breaker', desc: 'Reduce the cost circuit breaker threshold for this agent.', command: 'PATCH /api/agents/{agent_id}/governance\n{"cost_threshold": 0.20, "loop_kill": 2}', verify: 'Model Routing page shows updated threshold.' },
+        { title: 'Re-enable with monitoring', desc: 'Reactivate agent and monitor for 15 minutes.', command: 'POST /api/agents/{agent_id}/status\n{"status": "Active"}', verify: 'Anomaly Scoring page — no new Token Spike events.' },
+      ],
+      escalation: [{ from: 'L1', to: 'L2', threshold: '5 min' }, { from: 'L2', to: 'L3', threshold: '15 min' }, { from: 'L3', to: 'Platform Eng', threshold: '30 min' }],
+      relatedIncidents: ['INC-003', 'INC-009', 'INC-014'],
+    },
+    {
+      runbook_id: 'hitl-escalation', title: 'HITL Escalation Path', severity: 'P2',
+      personas: ['L2', 'L3'],
+      triggers: ['HITL approval pending > 5 minutes with no action', 'Critical-risk tool request from unexpected agent', 'HITL Console shows > 3 simultaneous pending approvals', 'On-call engineer unresponsive to Slack ping'],
+      steps: [
+        { title: 'Assess the queued request', desc: 'Open HITL Console → Approval Queue. Review the agent reasoning context and risk badge.', verify: 'Determine if the request is legitimate vs. anomalous.' },
+        { title: 'Check agent health', desc: 'Verify the requesting agent has a normal anomaly score.', command: 'GET /api/agents/{agent_id}/anomaly-score', verify: 'Score < 60: likely legitimate. Score > 60: escalate immediately.' },
+        { title: 'Approve or reject with audit log', desc: 'Use the HITL Console buttons. Do not use the API directly for auditability.', verify: 'Decision recorded in Approval History with your username.' },
+        { title: 'If escalating to L3', desc: 'Use the Delegate to L2/L3 button. Add a note explaining the escalation reason.', command: 'POST /api/hitl/{request_id}/delegate\n{"to_tier": "L3", "reason": "<your note>"}', verify: 'Request appears in L3 queue within 30 seconds.' },
+      ],
+      escalation: [{ from: 'L2', to: 'L3', threshold: '10 min' }, { from: 'L3', to: 'Platform Eng', threshold: '20 min' }],
+      relatedIncidents: ['INC-002', 'INC-011'],
+    },
+    {
+      runbook_id: 'memory-leak', title: 'Memory Leak Remediation', severity: 'P1',
+      personas: ['L2', 'L3', 'Platform Eng'],
+      triggers: ['Agent memory usage > 85% for > 3 minutes', 'OOM kill event detected in container logs', 'Self-Healing Memory Pressure Kill rule fires', 'Anomaly Score > 75 on Memory Overflow category'],
+      steps: [
+        { title: 'Identify memory growth pattern', desc: 'Open Live Operations → Performance. Locate the agent in the memory trend chart.', verify: 'Confirm monotonic memory growth — not a spike from a large payload.' },
+        { title: 'Capture heap snapshot', desc: 'Attach to the agent process and export a heap profile for analysis.', command: 'kubectl exec -it $(kubectl get pod -l app={agent_id} -o jsonpath="{.items[0].metadata.name}") -- node --inspect 0.0.0.0:9229 heap-snapshot.heapsnapshot', verify: 'File heap-snapshot.heapsnapshot created.' },
+        { title: 'Flush agent cache', desc: 'Clear the in-memory cache to reclaim memory without a full restart.', command: 'POST /api/agents/{agent_id}/cache/flush\n{"scope": "all", "reason": "memory-leak-remediation"}', verify: 'Response: {"flushed_bytes": N, "status": "ok"}. Monitor memory for 60s.', executable: true },
+        { title: 'Restart agent if unresolved', desc: 'If cache flush does not drop memory below 60%, perform a graceful restart.', command: 'kubectl rollout restart deployment/{agent_id} -n agents', verify: 'New pod healthy. Memory baseline < 40% on startup.' },
+        { title: 'Apply memory limit patch', desc: 'Reduce the agent memory ceiling to prevent recurrence.', command: 'kubectl set resources deployment/{agent_id} --limits=memory=2Gi --requests=memory=1Gi -n agents', verify: 'Limits updated.' },
+      ],
+      escalation: [{ from: 'L2', to: 'L3', threshold: '15 min' }, { from: 'L3', to: 'Platform Eng', threshold: '30 min' }],
+      relatedIncidents: ['INC-005', 'INC-012', 'INC-021'],
+    },
+    {
+      runbook_id: 'perf-degradation', title: 'Performance Degradation', severity: 'P2',
+      personas: ['L1', 'L2', 'L3'],
+      triggers: ['Agent p95 latency > 8 s for > 5 consecutive minutes', 'Throughput drops > 40% from 30-minute rolling baseline', 'Model endpoint timeout rate exceeds 5% within a 10-minute window', 'Anomaly Score > 70 on Latency Spike category in Anomaly Feed'],
+      steps: [
+        { title: 'Baseline current performance', desc: 'Pull the last 15 minutes of latency, throughput, and error-rate metrics.', command: 'GET /api/metrics/performance?agent_id={agent_id}&window=15m&granularity=1m', verify: 'Note p50, p95, p99 latency and requests-per-second.' },
+        { title: 'Check model endpoint health', desc: 'Verify the upstream LLM endpoint is responding within SLA.', command: 'GET /api/models/health', verify: 'If model health is degraded, activate the fallback model.' },
+        { title: 'Identify the bottleneck layer', desc: 'Navigate to Live Operations → Causal Tracing. Select an affected trace and expand the waterfall.', verify: 'Bottleneck span identified.' },
+        { title: 'Scale out the affected agent', desc: 'If the bottleneck is CPU/concurrency-bound, increase replica count.', command: 'kubectl scale deployment/{agent_id} --replicas=4 -n agents', verify: 'Replica count updated.' },
+        { title: 'Activate fallback model routing', desc: 'Switch to the configured fallback model to restore throughput.', command: 'PATCH /api/agents/{agent_id}/routing\n{"primary_model": "claude-3-haiku-20240307"}', verify: 'Model Routing page shows updated primary.', executable: true },
+        { title: 'Drain and flush the request queue', desc: 'Flush stale requests older than the SLA window.', command: 'POST /api/agents/{agent_id}/queue/drain\n{"older_than_seconds": 30}', verify: 'Queue depth returns to < 10.' },
+        { title: 'Confirm recovery and restore baseline config', desc: 'Once latency returns to baseline for 10 consecutive minutes, revert temporary changes.', command: 'PATCH /api/agents/{agent_id}/routing\n{"primary_model": "{original_model}"}', verify: 'p95 latency < 3 s for 10 min.' },
+      ],
+      escalation: [{ from: 'L1', to: 'L2', threshold: '10 min' }, { from: 'L2', to: 'L3', threshold: '25 min' }, { from: 'L3', to: 'Platform Eng', threshold: '45 min' }],
+      relatedIncidents: ['INC-004', 'INC-010', 'INC-016', 'INC-023'],
+    },
+    {
+      runbook_id: 'security-breach', title: 'Security Breach Protocol', severity: 'P1',
+      personas: ['L2', 'L3', 'Platform Eng'],
+      triggers: ['Trust Interceptor fires on prompt-injection or credential-exfiltration pattern', 'Audit log shows unexpected tool call to delete_record_api or bulk_update_api', 'Hallucination Score > 0.4 on a safety-critical agent for > 2 requests'],
+      steps: [
+        { title: 'Immediately isolate the agent', desc: 'Set the agent to Inactive to halt all tool calls and model invocations.', command: 'POST /api/agents/{agent_id}/status\n{"status": "Inactive"}', verify: 'Registry shows status = Inactive.', executable: true },
+        { title: 'Revoke active API keys and session tokens', desc: 'Rotate the agent service account credentials.', command: 'POST /api/platform/credentials/rotate\n{"agent_id": "{agent_id}"}', verify: 'Credentials rotated.' },
+        { title: 'Preserve forensic evidence', desc: 'Export the full audit trail before any cleanup.', command: 'GET /api/audit/export?agent_id={agent_id}&from=now-2h&to=now&format=jsonl', verify: 'Export files downloaded.' },
+        { title: 'Analyse the attack vector', desc: 'Open Live Operations → Causal Tracing.', verify: 'Root cause identified.' },
+        { title: 'Assess blast radius', desc: 'Determine what data the agent accessed during the breach window.', command: 'GET /api/audit/tool-calls?agent_id={agent_id}&include_args=true', verify: 'List of accessed resources documented.' },
+        { title: 'Patch the attack surface', desc: 'Tighten the Trust Interceptor pattern.', command: 'POST /api/trust/interceptors\n{"pattern": "Regex", "trigger": "{malicious_pattern}", "action": "Block & Alert"}', verify: 'New interceptor active.' },
+        { title: 'Restore agent under enhanced monitoring', desc: 'Re-enable the agent only after patch validation.', command: 'POST /api/agents/{agent_id}/status\n{"status": "Active", "enhanced_monitoring": true}', verify: 'Agent active. HITL Console shows all tool requests pending approval.' },
+      ],
+      escalation: [{ from: 'L2', to: 'L3', threshold: '5 min' }, { from: 'L3', to: 'Platform Eng', threshold: '10 min' }],
+      relatedIncidents: ['INC-006', 'INC-013', 'INC-018', 'INC-025'],
+    },
+    {
+      runbook_id: 'zeroops-recovery', title: 'ZeroOps Platform Recovery', severity: 'P1',
+      personas: ['L3', 'Platform Eng'],
+      triggers: ['VeriForge platform API returns 5xx for > 3 minutes across all endpoints', 'CoordinatorAgent fails to dispatch tasks', 'MongoDB connection pool exhausted', 'All agent pods in CrashLoopBackOff simultaneously'],
+      steps: [
+        { title: 'Declare a P1 incident and assemble the war room', desc: 'Immediately page the Platform Engineering on-call.', verify: 'On-call engineer acknowledged. Jira ticket created.' },
+        { title: 'Assess platform control-plane health', desc: 'Check the health of VeriForge API, CoordinatorAgent, and MongoDB.', command: 'curl -s http://127.0.0.1:9001/health | jq .\nkubectl get pods -n veriforge-platform', verify: 'Record which components are DOWN.' },
+        { title: 'Restore the VeriForge API server', desc: 'Restart the API process.', command: 'kubectl rollout restart deployment/veriforge-api -n veriforge-platform', verify: 'GET http://127.0.0.1:9001/health returns {"status": "ok"}.', executable: true },
+        { title: 'Recover MongoDB connectivity', desc: 'If the MongoDB pod is not running, attempt an in-place restart first.', command: 'kubectl rollout restart statefulset/mongodb -n veriforge-platform', verify: 'MongoDB pod Running.' },
+        { title: 'Restart the CoordinatorAgent', desc: 'The CoordinatorAgent re-syncs its task queue from MongoDB on startup.', command: 'kubectl rollout restart deployment/coordinator -n veriforge-platform', verify: 'Logs show "CoordinatorAgent ready."', executable: true },
+        { title: 'Validate agent fleet recovery', desc: 'Confirm all registered agents recover automatically.', command: 'kubectl get pods -n agents --watch', verify: 'All agent pods: Running.' },
+        { title: 'Run post-recovery validation suite', desc: 'Execute the platform smoke-test suite.', command: 'POST /api/platform/smoke-test\n{"suite": "full"}', verify: 'All smoke tests pass.', executable: true },
+        { title: 'Conduct 30-minute stabilisation watch and write post-mortem', desc: 'Keep the war room active for 30 minutes.', verify: 'Platform stable for 30 min. Post-mortem drafted.' },
+      ],
+      escalation: [{ from: 'L3', to: 'Platform Eng', threshold: '5 min' }],
+      relatedIncidents: ['INC-008', 'INC-015', 'INC-020', 'INC-022', 'INC-024'],
+    },
+  ]);
+};

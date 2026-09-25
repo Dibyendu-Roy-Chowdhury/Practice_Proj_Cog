@@ -1,0 +1,70 @@
+# NetworkPolicy — VeriForge Ops Dev (mirrors deployment/k8s/networkpolicy.yaml)
+#
+# Principle of least privilege for pod-to-pod traffic within the veriforgeops-dev namespace:
+#   - MongoDB accepts connections ONLY from backend pods (port 27017).
+#   - Backend accepts ingress on port 4000 from any source (GCE LB health checks + nginx proxy).
+#   - Frontend accepts ingress on port 8080 from any source (GCE LB health checks).
+#
+# NOTE: GKE must have NetworkPolicy enforcement enabled on the node pool
+# (--enable-network-policy flag). Verify with:
+#   gcloud container clusters describe <cluster> --format="value(networkConfig.enableNetworkPolicy)"
+
+---
+# Restrict MongoDB: only backend pods may connect on port 27017.
+# All other ingress to mongodb pods is denied.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mongodb-ingress-backend-only
+  namespace: veriforgeops-dev
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: backend
+    ports:
+    - protocol: TCP
+      port: 27017
+
+---
+# Backend: allow ingress on port 4000 from any source.
+# Traffic is authenticated at the application layer (JWT middleware).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-ingress
+  namespace: veriforgeops-dev
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 4000
+
+---
+# Frontend: allow ingress on port 8080 from any source (GCE LB + health checks).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-allow-ingress
+  namespace: veriforgeops-dev
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8080

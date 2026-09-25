@@ -1,0 +1,10 @@
+swagger: "2.0"
+info:
+  title: VeriForge Ops Dev
+  description: VeriForge Ops LLMOps Platform (Dev)
+  version: "1.0"
+host: "veriforgeops-dev.endpoints.cog01k24f1ea555zdv7ynzthxanz5.cloud.goog"
+x-google-endpoints:
+  - name: "veriforgeops-dev.endpoints.cog01k24f1ea555zdv7ynzthxanz5.cloud.goog"
+    target: "34.54.80.139"
+paths: {}

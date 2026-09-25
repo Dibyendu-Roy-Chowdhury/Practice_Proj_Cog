@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: veriforgeops-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/cog01k24f1ea555zdv7ynzthxanz5/veriforgeops-backend:dev-latest
+        ports:
+        - containerPort: 4000
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: veriforgeops-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: veriforgeops-config
+              key: NODE_ENV
+        - name: JWT_EXPIRES_IN
+          valueFrom:
+            configMapKeyRef:
+              name: veriforgeops-config
+              key: JWT_EXPIRES_IN
+        - name: ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: veriforgeops-config
+              key: ALLOWED_ORIGINS
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: JWT_SECRET
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: MONGO_URI
+        - name: CLOUD_SQL_INSTANCE
+          value: "cog01k24f1ea555zdv7ynzthxanz5:asia-south1:cio-ociolegalc"
+        - name: DB_NAME
+          value: "postgres"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cloudsql-user-credentials
+              key: DB_PASSWORD
+        - name: GCP_SA_6_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cloudsql-user-credentials
+              key: GCP_SA_6_KEY
+        - name: SEED_PASSWORD_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_ADMIN
+        - name: SEED_PASSWORD_DEMO
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_DEMO
+        - name: SEED_PASSWORD_RIMNA
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_RIMNA
+        - name: SEED_PASSWORD_IYER
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_IYER
+        - name: SEED_PASSWORD_SENTHEESH
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_SENTHEESH
+        - name: SEED_PASSWORD_HARPREET
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_HARPREET
+        - name: SEED_PASSWORD_SUNIL
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_SUNIL
+        - name: SEED_PASSWORD_MURUGESH
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_MURUGESH
+        - name: SEED_PASSWORD_JISHNU
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_JISHNU
+        - name: SEED_PASSWORD_HEMANT
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_HEMANT
+        - name: SEED_PASSWORD_SAMIR
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_SAMIR
+        - name: SEED_PASSWORD_HUSSAIN
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_HUSSAIN
+        - name: SEED_PASSWORD_ANNAL
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_ANNAL
+        - name: SEED_PASSWORD_SATISH
+          valueFrom:
+            secretKeyRef:
+              name: veriforgeops-secrets
+              key: SEED_PASSWORD_SATISH
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 5

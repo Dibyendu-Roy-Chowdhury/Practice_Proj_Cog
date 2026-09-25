@@ -1,0 +1,29 @@
+# PodDisruptionBudget — VeriForge Ops (F-019)
+#
+# Ensures at least 1 replica of each stateless workload stays available
+# during voluntary disruptions (node drains, rolling updates, cluster upgrades).
+# Both deployments run 2 replicas, so minAvailable: 1 allows rolling replacement.
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: veriforgeops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: veriforgeops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: frontend

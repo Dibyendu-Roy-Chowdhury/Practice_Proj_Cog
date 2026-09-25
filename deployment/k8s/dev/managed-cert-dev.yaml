@@ -1,0 +1,9 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: veriforgeops-dev-ssl-cert
+  namespace: veriforgeops-dev
+spec:
+  domains:
+    - veriforgeops-dev.34.54.80.139.nip.io
+    - 34.54.80.139.nip.io

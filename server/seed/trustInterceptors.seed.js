@@ -1,0 +1,32 @@
+const TrustInterceptor = require('../models/TrustInterceptor');
+
+module.exports = async function seedTrustInterceptors() {
+  await TrustInterceptor.deleteMany({});
+  await TrustInterceptor.insertMany([
+    // ── demo ─────────────────────────────────────────────────────────────────
+    { ti_id: 'TI-001', tenant_id: 'demo', name: 'SQL Injection Guard',                  desc: 'Blocks destructive SQL patterns in all tool calls, including OntologySqlTool queries from the Palantir AIP Logic workforce agent.',                                                                       active: true,  events: 23, action: 'Block & Alert' },
+    { ti_id: 'TI-002', tenant_id: 'demo', name: 'Prompt Injection Shield',              desc: 'Detects adversarial prompt payloads across all agents, including AIP Hub (gpt-5.5) inference calls bridged from the Palantir staging datastore.',                                                              active: true,  events: 6,  action: 'Block & Alert' },
+    { ti_id: 'TI-003', tenant_id: 'demo', name: 'Data Exfiltration Gate',               desc: 'Prevents PII/secrets in tool outputs — enforced on CandidateProfiles and ProfileChunks Ontology reads from the Palantir workforce agent.',                                                      active: true,  events: 4,  action: 'Block' },
+    { ti_id: 'TI-004', tenant_id: 'demo', name: 'Token Budget Enforcer',                desc: 'Hard-limits per-call token spend across all providers; monitors gpt-5.5 AIP Hub usage (4,922 tokens/exec avg) against the $0.50 cost circuit-breaker threshold.',                                              active: true,  events: 18, action: 'Alert' },
+    { ti_id: 'TI-005', tenant_id: 'demo', name: 'Loop Detector',                        desc: 'Terminates identical ReAct cycles — currently inactive. Enable to guard against repetitive OntologySqlTool or FIND_RELEVANT_CHUNKS call loops.',                                                               active: false, events: 0,  action: 'Block' },
+    { ti_id: 'TI-006', tenant_id: 'demo', name: 'Semantic Drift Alert',                 desc: 'Flags off-topic agent reasoning. Monitors Palantir AIP Logic workforce agent for deviation from approved staffing baseline across OntologySqlTool and vector search outputs.',                                 active: true,  events: 11, action: 'Alert' },
+    { ti_id: 'TI-007', tenant_id: 'demo', name: 'Ontology PII Guard (Palantir)',        desc: 'Intercepts OntologySqlTool SELECT queries on CandidateProfiles and ProfileChunks to prevent unmasked PII (name, email, phone) from appearing in AIP Hub responses. Source: Palantir Foundry Audit Log via staging bridge.', active: true,  events: 7,  action: 'Block & Alert' },
+    { ti_id: 'TI-008', tenant_id: 'demo', name: 'AIP Hub Response Validator (Palantir)',desc: 'Validates gpt-5.5 inference responses from Palantir AIP Hub against approved job matching taxonomy (Jobs table: JC002, JC006, JC007) before forwarding to downstream systems. Execution ID logged per call.', active: true,  events: 3,  action: 'Alert' },
+
+    // ── arcadia-health ────────────────────────────────────────────────────────
+    { ti_id: 'pii_underwriting',  tenant_id: 'arcadia-health', name: 'PII Underwriting Guard',              desc: 'Redacts applicant PII (SSN, DOB, health history) from underwriting tool inputs and outputs in real time.',               active: true,  events: 3841, action: 'Block & Alert' },
+    { ti_id: 'policy_exfil',      tenant_id: 'arcadia-health', name: 'Policy Data Exfiltration Gate',       desc: 'Prevents underwriting policy pricing data and actuarial scores from leaking via agent calls.',                           active: true,  events: 512,  action: 'Block & Alert' },
+    { ti_id: 'prompt_injection',  tenant_id: 'arcadia-health', name: 'Prompt Injection Guard',              desc: 'Blocks adversarial injection attacks on underwriting decision and workforce planning workflows.',                        active: true,  events: 147,  action: 'Block & Alert' },
+    { ti_id: 'employee_pii',      tenant_id: 'arcadia-health', name: 'Employee PII Guard',                  desc: 'Prevents employee personal data from being exported without data privacy consent review.',                              active: true,  events: 88,   action: 'Block' },
+    { ti_id: 'underwriting_bias', tenant_id: 'arcadia-health', name: 'Underwriting Bias Screen',            desc: 'Validates underwriting decisions for discriminatory patterns against protected characteristics under ECOA and ADA.',    active: true,  events: 234,  action: 'Block & Alert' },
+    { ti_id: 'compliance_screen', tenant_id: 'arcadia-health', name: 'ISO 42001 / SOC 2 Compliance Screen', desc: 'Enforces ISO 42001 and SOC 2 Type II AI governance controls on every agent response.',                                  active: true,  events: 198,  action: 'Block & Alert' },
+
+    // ── zenith-capital ────────────────────────────────────────────────────────
+    { ti_id: 'mnpi_firewall',       tenant_id: 'zenith-capital', name: 'MNPI Firewall',             desc: 'Screens for material non-public information before any trading signal is generated.', active: true,  events: 1842, action: 'Block & Alert' },
+    { ti_id: 'pfi_redaction',       tenant_id: 'zenith-capital', name: 'PFI Redaction',             desc: 'Redacts Protected Financial Information per SEC Rule 17a-4 and MiFID II mandates.',   active: true,  events: 4103, action: 'Block & Alert' },
+    { ti_id: 'prompt_injection',    tenant_id: 'zenith-capital', name: 'Prompt Injection Guard',    desc: 'Blocks adversarial injection targeting trade execution and risk calculation agents.',  active: true,  events: 284,  action: 'Block & Alert' },
+    { ti_id: 'market_manipulation', tenant_id: 'zenith-capital', name: 'Market Manipulation Guard', desc: 'Detects spoofing, layering, and wash-trade patterns in agent-generated signals.',     active: true,  events: 93,   action: 'Block & Alert' },
+    { ti_id: 'position_limit',      tenant_id: 'zenith-capital', name: 'Position Limit Enforcer',   desc: 'Validates all position sizing recommendations against regulatory capital limits.',     active: true,  events: 412,  action: 'Block' },
+    { ti_id: 'sec_compliance',      tenant_id: 'zenith-capital', name: 'SEC / SOC 2 Screen',        desc: 'Enforces SEC Rule 17a-4, FINRA OATS, and SOC 2 Type II controls on every response.',  active: true,  events: 631,  action: 'Block & Alert' },
+  ]);
+};

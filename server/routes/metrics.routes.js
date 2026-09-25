@@ -1,0 +1,14 @@
+const router = require('express').Router();
+const ctrl   = require('../controllers/metrics.controller');
+router.get('/tokens',            ctrl.getTokenUsage);
+router.get('/command-centre',    ctrl.getCommandCentreMetrics);
+router.get('/daily-cost',        ctrl.getDailyCostMetrics);
+router.get('/model-breakdown',   ctrl.getModelBreakdown);
+router.get('/model-integrity',   ctrl.getModelIntegrityMetrics);
+router.get('/drift-velocity',    ctrl.getDriftVelocity);
+router.get('/provider-success',  ctrl.getProviderSuccess);
+router.get('/capital-efficiency',ctrl.getCapitalEfficiency);
+router.get('/spend-by-dept',     ctrl.getSpendByDept);
+router.get('/token-waste',       ctrl.getTokenWaste);
+router.get('/trajectory',        ctrl.getTrajectoryScore);
+module.exports = router;

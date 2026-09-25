@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: veriforgeops-config
+  namespace: veriforgeops-dev
+data:
+  NODE_ENV: "development"
+  PORT: "4000"
+  JWT_EXPIRES_IN: "24h"
+  ALLOWED_ORIGINS: "http://veriforgeops-dev.endpoints.cog01k24f1ea555zdv7ynzthxanz5.cloud.goog,http://34.54.80.139,http://frontend-service,http://frontend-service.veriforgeops-dev.svc.cluster.local"
